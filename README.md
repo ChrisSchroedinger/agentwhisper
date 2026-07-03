@@ -19,10 +19,16 @@ archived), rebuilt around the lessons learned there — see
 
 ## What it looks like
 
-- A **microphone icon in your system tray**. Right-click it for the menu.
-- While recording, the icon turns **red** and a small translucent panel
-  appears near the bottom of your screen with **green bars dancing to
-  your voice** — so you always know when the microphone is live.
+A **microphone icon in your system tray** — right-click it for the menu.
+It turns red while recording:
+
+![The tray icon in its idle and recording states](docs/icon-states.png)
+
+While recording, a small translucent panel floats near the bottom of
+your screen with **green bars dancing to your voice** — so you always
+know when the microphone is live:
+
+![The recording visualizer with green level bars](docs/osd-recording.png)
 
 ## Requirements
 
