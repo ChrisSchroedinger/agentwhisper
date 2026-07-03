@@ -2,6 +2,14 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.7 — 2026-07-04
+
+### Changed
+- `config.toml` now documents every setting inline: possible values,
+  meanings, model size/speed trade-offs. The explanations survive
+  settings changes made from the tray menu (previously a tray change
+  rewrote the file without comments).
+
 ## 0.3.6 — 2026-07-04
 
 ### Fixed

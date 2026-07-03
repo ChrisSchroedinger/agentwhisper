@@ -1,6 +1,6 @@
 [project]
 name = "agentwhisper"
-version = "0.3.6"
+version = "0.3.7"
 description = "Rock-solid push-to-talk voice dictation for Linux, daemon + clients architecture"
 readme = "README.md"
 requires-python = ">=3.11"

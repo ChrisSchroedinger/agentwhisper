@@ -18,27 +18,6 @@ CONFIG_PATH = Path.home() / ".config" / "agentwhisper" / "config.toml"
 MODELS = ["tiny.en", "base.en", "small.en", "medium.en"]
 MODES = ["hold", "toggle"]
 
-DEFAULT_CONFIG_TOML = """\
-# AgentWhisper configuration. Every key is optional; these are the defaults.
-
-[whisper]
-model = "base.en"        # tiny.en, base.en, small.en, medium.en
-device = "cpu"           # cpu or cuda
-compute_type = "int8"    # int8 for cpu, float16 for cuda
-
-[hotkey]
-key = "f12"              # f12, scroll_lock, pause, ...
-mode = "hold"            # hold = push-to-talk, toggle = tap to start/stop
-
-[output]
-auto_type = true         # type the transcript into the focused window
-notifications = true     # desktop notifications for state changes
-
-[limits]
-max_record_seconds = 60  # hard cap; a stuck key cannot record forever
-"""
-
-
 class ConfigError(Exception):
     """Raised with a message listing every problem found in the config."""
 
@@ -124,6 +103,68 @@ def load(path: Path = CONFIG_PATH) -> Config:
     return config
 
 
+def _render(config: Config) -> str:
+    """The config file text: every setting fully explained, with the
+    given config's values filled in. Used for both the initial default
+    file and every save, so the explanations never get lost."""
+    return f"""\
+# AgentWhisper configuration.
+# The app rewrites this file when you change settings from the tray
+# menu — your values are always kept. After editing it by hand,
+# restart AgentWhisper (agentwhisper quit, then start it again).
+
+[whisper]
+# The speech recognition model. Bigger = more accurate but slower.
+# Downloaded automatically on first use (into ~/.cache/huggingface,
+# shared with other Whisper tools). Possible values:
+#   tiny.en     ~75 MB   fastest, okay for short phrases
+#   base.en    ~140 MB   fast, good accuracy (default)
+#   small.en   ~460 MB   noticeably slower, very good accuracy
+#   medium.en  ~1.5 GB   slow without a GPU, best accuracy
+model = "{config.model}"
+
+# Where transcription runs:
+#   cpu   works everywhere (default)
+#   cuda  NVIDIA GPU; requires cuDNN 9 for CUDA 12
+device = "{config.device}"
+
+# Number precision for the model:
+#   int8     the right choice for cpu (default)
+#   float16  the right choice for cuda
+compute_type = "{config.compute_type}"
+
+[hotkey]
+# The push-to-talk key: f1 .. f12, scroll_lock, pause, insert, menu.
+# AgentWhisper reserves this key exclusively while it runs — other
+# programs won't see it. Ctrl/Alt combinations keep working elsewhere.
+key = "{config.hotkey}"
+
+# How recording is triggered:
+#   hold    push-to-talk: hold the key, speak, release (default)
+#   toggle  press once to start recording, press again to stop
+mode = "{config.mode}"
+
+[output]
+# true   type the transcript into the focused window automatically
+# false  only copy it to the clipboard (paste it with Ctrl+V)
+auto_type = {str(config.auto_type).lower()}
+
+# true   show a desktop notification after each dictation
+#        ("Typed & copied" with a preview, "No speech detected", errors)
+# false  stay silent (the tray icon still shows what's happening)
+notifications = {str(config.notifications).lower()}
+
+[limits]
+# Hard cap on a single recording, in seconds (1 or higher), so a stuck
+# key cannot record forever. Recordings under ~0.3s are ignored as
+# accidental taps.
+max_record_seconds = {config.max_record_seconds}
+"""
+
+
+DEFAULT_CONFIG_TOML = _render(Config())
+
+
 def write_default(path: Path = CONFIG_PATH) -> None:
     """Write the commented default config if none exists."""
     if not path.exists():
@@ -134,27 +175,12 @@ def write_default(path: Path = CONFIG_PATH) -> None:
 def save(config: Config, path: Path = CONFIG_PATH) -> None:
     """Persist the config (used when settings change via the tray menu).
 
-    Rewrites the file in the default template's structure; custom
-    comments in a hand-edited file are not preserved.
+    Rewrites the file from the standard commented template with the
+    current values — explanations survive every save; hand-written
+    custom comments do not.
     """
     problems = config.validate()
     if problems:
         raise ConfigError("refusing to save invalid config:\n  - " + "\n  - ".join(problems))
-    text = (
-        "# AgentWhisper configuration. Managed by the app; edits are kept,\n"
-        "# comments are not.\n"
-        "\n[whisper]\n"
-        f'model = "{config.model}"\n'
-        f'device = "{config.device}"\n'
-        f'compute_type = "{config.compute_type}"\n'
-        "\n[hotkey]\n"
-        f'key = "{config.hotkey}"\n'
-        f'mode = "{config.mode}"\n'
-        "\n[output]\n"
-        f"auto_type = {str(config.auto_type).lower()}\n"
-        f"notifications = {str(config.notifications).lower()}\n"
-        "\n[limits]\n"
-        f"max_record_seconds = {config.max_record_seconds}\n"
-    )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text)
+    path.write_text(_render(config))
