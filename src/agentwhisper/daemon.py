@@ -1,15 +1,15 @@
 """agentwhisperd — the daemon.
 
-Milestone 2 scope: the daemon HEARS.
-- the hotkey is reserved system-wide via XGrabKey (no collisions with
-  other apps' F12 bindings)
-- press/release drive the debounced state machine; recording is real
-  microphone capture (sounddevice)
-- recording state is visible: red tray icon + the OSD level visualizer
-- hold/toggle mode switchable from the tray menu or `agentwhisper mode`
+Milestone 3 scope: the daemon TRANSCRIBES.
+- the hotkey is reserved system-wide via XGrabKey; press/release drive
+  the debounced state machine; recording is real microphone capture
+- the whisper model loads in a background thread at startup (the app
+  stays instantly responsive; the first-ever run downloads the model)
+- on stop, audio goes through the Engine and the text lands on the
+  clipboard (xclip); every stage is visible in tray + `status` + log
 
-Transcription lands in milestone 3 — captured audio is measured,
-logged, and discarded.
+Auto-typing into the active window and desktop notifications arrive in
+milestone 4.
 """
 
 from __future__ import annotations
@@ -26,6 +26,10 @@ from pathlib import Path
 from agentwhisper import __version__, ipc
 from agentwhisper import config as config_mod
 from agentwhisper.audio import AudioError, Recorder
+from agentwhisper.desktop.base import DesktopError
+from agentwhisper.desktop.x11 import X11Desktop
+from agentwhisper.engines.base import EngineError
+from agentwhisper.engines.whisper_local import WhisperLocalEngine
 from agentwhisper.state import RELEASE_DEBOUNCE_SECONDS, Action, DictationStateMachine
 
 log = logging.getLogger("agentwhisper")
@@ -33,14 +37,22 @@ log = logging.getLogger("agentwhisper")
 LOG_DIR = Path.home() / ".local" / "state" / "agentwhisper"
 LOG_PATH = LOG_DIR / "daemon.log"
 
+# Recordings shorter than this are accidental taps, not speech.
+MIN_RECORDING_SECONDS = 0.3
+
 
 class Daemon:
     """Wires hotkey events through the state machine to real effects."""
 
-    def __init__(self, cfg: config_mod.Config):
+    def __init__(self, cfg: config_mod.Config, *, recorder=None, engine=None,
+                 desktop=None):
         self.config = cfg
         self.sm = DictationStateMachine(mode=cfg.mode)
-        self.recorder = Recorder()
+        self.recorder = recorder if recorder is not None else Recorder()
+        self.engine = engine if engine is not None else WhisperLocalEngine(
+            cfg.model, cfg.device, cfg.compute_type)
+        self.desktop = desktop if desktop is not None else X11Desktop()
+        self.desktop_problems = self.desktop.check()
         self.started_at = time.time()
         self.hotkey_status = "inactive"
         self._lock = threading.RLock()
@@ -49,6 +61,11 @@ class Daemon:
         self._visualizer = None
         self._settle_timer: threading.Timer | None = None
         self._max_timer: threading.Timer | None = None
+
+    def start_engine(self) -> None:
+        """Load the model in the background; the daemon stays responsive."""
+        threading.Thread(target=self.engine.load, name="engine-load",
+                         daemon=True).start()
 
     # -- hotkey events (called from the listener thread) -----------------
 
@@ -100,7 +117,7 @@ class Daemon:
             self.config.max_record_seconds, self._on_max_duration)
         self._max_timer.start()
         if self._tray is not None:
-            self._tray.set_recording(True)
+            self._tray.set_state("recording")
         if self._visualizer is not None:
             self._visualizer.show()
 
@@ -109,16 +126,42 @@ class Daemon:
         samples, duration = self.recorder.stop()
         if self._visualizer is not None:
             self._visualizer.hide()
-        if self._tray is not None:
-            self._tray.set_recording(False)
+
         if discard:
             log.info("recording aborted (%.1fs discarded)", duration)
-        else:
-            log.info("recording stopped: %.1fs captured (%d samples). "
-                     "Transcription arrives in milestone 3 — discarding.",
-                     duration, len(samples))
-        # No engine yet: close the transcribing phase immediately.
-        self._dispatch(self.sm.transcription_finished())
+        elif duration < MIN_RECORDING_SECONDS:
+            log.info("recording too short (%.2fs) — ignoring accidental tap", duration)
+            discard = True
+
+        if discard:
+            if self._tray is not None:
+                self._tray.set_state("idle")
+            self._dispatch(self.sm.transcription_finished())
+            return
+
+        log.info("recording stopped: %.1fs captured — transcribing", duration)
+        if self._tray is not None:
+            self._tray.set_state("transcribing")
+        threading.Thread(target=self._transcribe, args=(samples,),
+                         name="transcribe", daemon=True).start()
+
+    def _transcribe(self, samples) -> None:
+        try:
+            text = self.engine.transcribe(samples, 16_000)
+            if text:
+                self.desktop.copy(text)
+                log.info("transcribed %d characters → clipboard", len(text))
+            else:
+                log.info("no speech detected")
+        except (EngineError, DesktopError) as e:
+            log.error("transcription failed: %s", e)
+        except Exception:
+            log.exception("unexpected transcription error")
+        finally:
+            if self._tray is not None:
+                self._tray.set_state("idle")
+            with self._lock:
+                self._dispatch(self.sm.transcription_finished())
 
     def _cancel_timer(self, name: str) -> None:
         timer = getattr(self, name)
@@ -169,6 +212,8 @@ class Daemon:
                 phase=self.sm.phase.name.lower(),
                 enabled=self.sm.enabled,
                 model=self.config.model,
+                engine=self.engine.status,
+                clipboard="; ".join(self.desktop_problems) or "ok",
                 mode=self.sm.mode,
                 hotkey=self.config.hotkey,
                 hotkey_status=self.hotkey_status,
@@ -265,6 +310,9 @@ def main() -> int:
     log.info("config OK: model=%s mode=%s hotkey=%s", cfg.model, cfg.mode, cfg.hotkey)
 
     daemon = Daemon(cfg)
+    for problem in daemon.desktop_problems:
+        log.warning("desktop check: %s", problem)
+    daemon.start_engine()
 
     sock_path = ipc.socket_path()
     _claim_socket(sock_path)

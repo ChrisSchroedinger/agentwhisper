@@ -5,13 +5,12 @@ speak, release — your words are transcribed on your own computer and
 land in your clipboard, optionally typed straight into whatever you were
 writing. No cloud, no account, no internet needed after setup.
 
-> ⚠️ **Project status: in active development — not ready for daily use yet.**
-> What works today: the app installs cleanly, sits in your system tray,
-> reserves the hotkey exclusively, records your microphone, and shows a
-> live voice visualizer while you speak.
-> What is still missing: **the actual transcription** (speech → text) is
-> the next milestone. Right now recordings are measured and discarded.
-> Watch the [roadmap](#roadmap) below.
+> ⚠️ **Project status: in active development — usable, with rough edges.**
+> What works today: install, tray icon, exclusive hotkey, recording with
+> a live voice visualizer, and **transcription — your speech becomes
+> text in the clipboard** (paste it anywhere with Ctrl+V).
+> Still missing: automatic typing into the active window and desktop
+> notifications — that's the next milestone. See the [roadmap](#roadmap).
 
 AgentWhisper is the from-scratch successor to
 [soupawhisper](https://github.com/ChrisSchroedinger/soupawhisper) (now
@@ -73,6 +72,14 @@ in the tray.
 | **Hold to talk** (default) | Hold F12, speak, release. |
 | **Press to toggle** | Press F12 to start, press F12 again to stop. |
 
+When you stop, the tray shows *Transcribing…* for a moment and then the
+text is **in your clipboard** — paste it anywhere with Ctrl+V.
+
+> **First run:** the speech model (~140MB for the default) downloads
+> automatically in the background when AgentWhisper starts. Until it
+> finishes, dictations wait for it. `agentwhisper status` shows the
+> progress on the `engine:` line (`loading` → `ready`).
+
 While AgentWhisper runs, **F12 belongs to it alone** — other programs
 won't see the key, so it can't accidentally trigger something else.
 (Combinations like Ctrl+F12 keep working normally.)
@@ -122,6 +129,12 @@ different key in the config file.
 **No green bars while recording?** Check `agentwhisper status` →
 `visualizer:`. If unavailable, install `python3-gi-cairo` and restart.
 
+**Dictated but nothing in the clipboard?** Check `agentwhisper status`:
+`engine:` must say `ready` (`loading` means the model is still
+downloading — first run only), and `clipboard:` must say `ok` (if not,
+`sudo apt install xclip`). Very short taps (under ~0.3s) are ignored on
+purpose, and silence transcribes to nothing.
+
 **Where are the logs?** `~/.local/state/agentwhisper/daemon.log`.
 
 ## Roadmap
@@ -130,8 +143,8 @@ different key in the config file.
 |-----------|:------:|
 | 1. Installs, runs once, tray icon + menu | ✅ done |
 | 2. Records: exclusive hotkey, mic capture, voice visualizer | ✅ done |
-| 3. Transcribes: speech → text in your clipboard (English) | 🔜 next |
-| 4. Types the text into the active window + notifications | planned |
+| 3. Transcribes: speech → text in your clipboard (English) | ✅ done |
+| 4. Types the text into the active window + notifications | 🔜 next |
 | 5. Polish: autostart, easy model download, .deb package | planned |
 | Later: more languages, Wayland, agent mode | designed for |
 
@@ -139,7 +152,7 @@ different key in the config file.
 
 ```bash
 ./install.sh       # sets up the venv (needs system Python + GTK bindings)
-uv run pytest      # 41 tests
+uv run pytest      # 47 tests
 uv run ruff check .
 ```
 

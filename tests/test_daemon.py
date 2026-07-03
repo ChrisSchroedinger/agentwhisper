@@ -10,9 +10,27 @@ from agentwhisper.config import Config
 from agentwhisper.daemon import Daemon, _Server
 
 
+class _FakeEngine:
+    status = "ready"
+
+    def load(self):
+        pass
+
+    def transcribe(self, samples, sample_rate):
+        return ""
+
+
+class _FakeDesktop:
+    def check(self):
+        return []
+
+    def copy(self, text):
+        pass
+
+
 @pytest.fixture
 def daemon():
-    return Daemon(Config())
+    return Daemon(Config(), engine=_FakeEngine(), desktop=_FakeDesktop())
 
 
 class TestHandleRequest:
@@ -25,6 +43,8 @@ class TestHandleRequest:
         assert s["phase"] == "idle"
         assert s["enabled"] is True
         assert s["model"] == "base.en"
+        assert s["engine"] == "ready"
+        assert s["clipboard"] == "ok"
         assert s["mode"] == "hold"
         assert s["hotkey"] == "f12"
         assert s["hotkey_status"] == "inactive"

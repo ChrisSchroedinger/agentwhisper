@@ -129,18 +129,20 @@ agentwhisper/
 
 ## Milestones (step by step, each one usable and tested)
 
-1. **Starts and shows up** ← current: daemon skeleton (config, logging,
+1. **Starts and shows up** ✅: daemon skeleton (config, logging,
    socket = single-instance lock, CLI `status/toggle/quit`), tray icon
    in the XFCE panel via direct GTK/AyatanaAppIndicator bindings (no
    pystray backend guessing), XFCE menu entry, user-level `install.sh`.
    For this milestone the tray runs inside the daemon process; the
    split into a separate tray client happens once the IPC surface has
    settled.
-2. **Hears**: audio capture (sounddevice), exclusive XGrabKey hotkey
+2. **Hears** ✅: audio capture (sounddevice), exclusive XGrabKey hotkey
    wired to the state machine, recording visible in tray + `status` +
    the OSD level visualizer, mode switching in the tray menu.
-3. **Transcribes**: whisper engine, clipboard output.
-4. **Types**: auto-type via the X11 DesktopBackend; notifications.
+3. **Transcribes** ✅: Engine interface + faster-whisper implementation
+   (background load at startup), clipboard via the X11 DesktopBackend.
+4. **Types** ← current: auto-type via the X11 DesktopBackend;
+   notifications.
 5. **Hardens**: systemd unit, autostart option, model download UX,
    `.deb` packaging.
 

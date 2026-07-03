@@ -135,13 +135,17 @@ class Tray:
 
     # -- state display (thread-safe) ----------------------------------------
 
-    def set_recording(self, recording: bool) -> None:
-        self._glib.idle_add(self._set_recording_on_gtk_thread, recording)
+    def set_state(self, state: str) -> None:
+        """'idle' | 'recording' | 'transcribing' — safe from any thread."""
+        self._glib.idle_add(self._set_state_on_gtk_thread, state)
 
-    def _set_recording_on_gtk_thread(self, recording: bool) -> bool:
-        if recording:
+    def _set_state_on_gtk_thread(self, state: str) -> bool:
+        if state == "recording":
             self.indicator.set_icon_full("agentwhisper-recording", "recording")
             self._status_item.set_label("● Recording…")
+        elif state == "transcribing":
+            self.indicator.set_icon_full("agentwhisper", "transcribing")
+            self._status_item.set_label("⋯ Transcribing…")
         else:
             self.indicator.set_icon_full("agentwhisper", "idle")
             self._refresh_status_label()

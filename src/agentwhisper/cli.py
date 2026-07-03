@@ -45,6 +45,8 @@ def cmd_status() -> int:
     print(f"  phase:      {s['phase']}")
     print(f"  enabled:    {s['enabled']}")
     print(f"  model:      {s['model']}")
+    print(f"  engine:     {s['engine']}")
+    print(f"  clipboard:  {s['clipboard']}")
     print(f"  mode:       {s['mode']}")
     print(f"  hotkey:     {s['hotkey']} — {s['hotkey_status']}")
     print(f"  tray:       {s['tray']}")
