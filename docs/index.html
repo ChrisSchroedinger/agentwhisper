@@ -6,401 +6,997 @@
 <title>AgentWhisper — push-to-talk dictation for Linux</title>
 <meta name="description" content="Hold a key, speak, release — your words are typed into whatever you're writing. Transcribed entirely on your own computer. No cloud, no account.">
 <meta property="og:title" content="AgentWhisper — push-to-talk dictation for Linux">
-<meta property="og:description" content="Hold a key, speak, release — your words are typed into whatever you're writing. 100% local, no cloud, no account.">
+<meta property="og:description" content="Hold a key, speak, release — your words are typed into whatever you're writing. 100% on-device, no cloud, no account.">
 <meta property="og:image" content="https://chrisschroedinger.github.io/AgentWhisper/osd-recording.png">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='3' y='3' width='58' height='58' rx='14' fill='%23171c2a'/%3E%3Crect x='26' y='13' width='12' height='22' rx='6' fill='%23f4f6fb'/%3E%3Cpath d='M20 30v3a12 12 0 0 0 24 0v-3' fill='none' stroke='%23f4f6fb' stroke-width='4' stroke-linecap='round'/%3E%3Cline x1='32' y1='45' x2='32' y2='50' stroke='%23f4f6fb' stroke-width='4' stroke-linecap='round'/%3E%3Cline x1='25' y1='50' x2='39' y2='50' stroke='%23f4f6fb' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M48 8l2.2 5.8L56 16l-5.8 2.2L48 24l-2.2-5.8L40 16l5.8-2.2z' fill='%238b7bff'/%3E%3C/svg%3E">
+
+<script>
+/* set theme before first paint to avoid a flash of the wrong theme */
+(function () {
+  try {
+    var t = localStorage.getItem('aw-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  } catch (e) {}
+})();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Instrument+Sans:ital,wght@0,400..600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+
 <style>
+/* ---------------------------------- tokens ---------------------------------- */
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --raised: #eceef5;
+  --ink: #191e30;
+  --ink-dim: #5b6178;
+  --ink-faint: #9297ac;
+  --line: #e2e5ef;
+  --line-strong: #cdd2e2;
+  --accent: #5b48d6;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(91, 72, 214, 0.08);
+  --live: #16a34a;
+  --rec: #dc2626;
+  --shadow: 0 1px 2px rgba(25, 30, 48, 0.05), 0 12px 32px -12px rgba(25, 30, 48, 0.12);
+  --shadow-big: 0 2px 4px rgba(25, 30, 48, 0.06), 0 32px 64px -24px rgba(25, 30, 48, 0.25);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
   :root {
-    --bg: #10141f;
-    --bg-raised: #171c2a;
-    --bg-card: #1c2233;
-    --border: #2b3245;
-    --text: #e8ebf4;
-    --text-dim: #9aa3b8;
+    --bg: #0e1220;
+    --surface: #151a2b;
+    --raised: #1c2236;
+    --ink: #ecEEf6;
+    --ink-dim: #9aa1b8;
+    --ink-faint: #626a84;
+    --line: #232a40;
+    --line-strong: #323a55;
     --accent: #8b7bff;
-    --accent-soft: rgba(139, 123, 255, 0.14);
-    --green: #4ade80;
-    --red: #f87171;
-    --radius: 14px;
+    --accent-ink: #12101f;
+    --accent-wash: rgba(139, 123, 255, 0.1);
+    --live: #4ade80;
+    --rec: #f87171;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+    --shadow-big: 0 2px 4px rgba(0, 0, 0, 0.35), 0 32px 64px -24px rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1220;
+  --surface: #151a2b;
+  --raised: #1c2236;
+  --ink: #eceef6;
+  --ink-dim: #9aa1b8;
+  --ink-faint: #626a84;
+  --line: #232a40;
+  --line-strong: #323a55;
+  --accent: #8b7bff;
+  --accent-ink: #12101f;
+  --accent-wash: rgba(139, 123, 255, 0.1);
+  --live: #4ade80;
+  --rec: #f87171;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+  --shadow-big: 0 2px 4px rgba(0, 0, 0, 0.35), 0 32px 64px -24px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --raised: #eceef5;
+  --ink: #191e30;
+  --ink-dim: #5b6178;
+  --ink-faint: #9297ac;
+  --line: #e2e5ef;
+  --line-strong: #cdd2e2;
+  --accent: #5b48d6;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(91, 72, 214, 0.08);
+  --live: #16a34a;
+  --rec: #dc2626;
+  --shadow: 0 1px 2px rgba(25, 30, 48, 0.05), 0 12px 32px -12px rgba(25, 30, 48, 0.12);
+  --shadow-big: 0 2px 4px rgba(25, 30, 48, 0.06), 0 32px 64px -24px rgba(25, 30, 48, 0.25);
+  color-scheme: light;
+}
 
-  /* ---------- hero ---------- */
-  header {
-    background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,123,255,0.18), transparent),
-      var(--bg);
-    border-bottom: 1px solid var(--border);
-    text-align: center;
-    padding: 72px 0 64px;
-  }
-  .logo { width: 88px; height: 88px; display: block; margin: 0 auto 20px; }
-  .badges {
-    display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: center;
-    margin-bottom: 20px;
-  }
-  .badge {
-    font-size: 13px; color: var(--text-dim);
-    border: 1px solid var(--border); border-radius: 999px;
-    padding: 3px 12px; background: var(--bg-raised);
-  }
-  .badge strong { color: var(--green); font-weight: 600; }
-  h1 { font-size: clamp(34px, 6vw, 52px); letter-spacing: -0.02em; line-height: 1.1; }
-  h1 .spark { color: var(--accent); }
-  .tagline {
-    font-size: clamp(18px, 2.6vw, 22px); color: var(--text);
-    max-width: 620px; margin: 18px auto 10px; font-weight: 500;
-  }
-  .subline { color: var(--text-dim); max-width: 560px; margin: 0 auto 32px; }
-  .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 9px;
-    padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 16px;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
-  }
-  .btn:hover { text-decoration: none; transform: translateY(-1px); }
-  .btn-primary {
-    background: var(--accent); color: #14101f;
-    box-shadow: 0 4px 24px rgba(139,123,255,0.35);
-  }
-  .btn-primary:hover { box-shadow: 0 6px 28px rgba(139,123,255,0.5); }
-  .btn-ghost { border: 1px solid var(--border); color: var(--text); background: var(--bg-raised); }
-  .btn svg { width: 18px; height: 18px; fill: currentColor; }
+/* terminal-style windows keep their own ink in both themes */
+:root {
+  --term-ink: #d6dbec;
+  --term-dim: #7d859f;
+  --term-line: #262d45;
+  --term-solid: #10141f;
+}
 
-  /* animated visualizer bars */
-  .viz { display: flex; gap: 5px; justify-content: center; align-items: flex-end; height: 34px; margin: 40px auto 0; }
-  .viz span {
-    width: 6px; border-radius: 3px; background: var(--green);
-    animation: bounce 1.1s ease-in-out infinite;
-  }
-  .viz span:nth-child(1) { height: 30%; animation-delay: 0s; }
-  .viz span:nth-child(2) { height: 65%; animation-delay: 0.15s; }
-  .viz span:nth-child(3) { height: 100%; animation-delay: 0.3s; }
-  .viz span:nth-child(4) { height: 55%; animation-delay: 0.45s; }
-  .viz span:nth-child(5) { height: 85%; animation-delay: 0.6s; }
-  .viz span:nth-child(6) { height: 40%; animation-delay: 0.75s; }
-  .viz span:nth-child(7) { height: 70%; animation-delay: 0.9s; }
-  @keyframes bounce { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
-  @media (prefers-reduced-motion: reduce) { .viz span { animation: none; } }
+/* ---------------------------------- base ---------------------------------- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3 {
+  font-family: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+a { color: inherit; }
+img { max-width: 100%; height: auto; }
+code, kbd, pre, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
-  /* ---------- sections ---------- */
-  section { padding: 64px 0; }
-  section + section { border-top: 1px solid var(--border); }
-  h2 { font-size: 28px; letter-spacing: -0.01em; margin-bottom: 8px; text-align: center; }
-  .section-sub { color: var(--text-dim); text-align: center; max-width: 560px; margin: 0 auto 40px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 clamp(20px, 4vw, 40px); }
 
-  /* how it works */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .step {
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 26px 22px;
-  }
-  .step .num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 9px;
-    background: var(--accent-soft); color: var(--accent);
-    font-weight: 700; margin-bottom: 14px;
-  }
-  .step h3 { font-size: 18px; margin-bottom: 6px; }
-  .step h3 kbd {
-    font: 600 15px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    background: var(--bg-raised); border: 1px solid var(--border);
-    border-bottom-width: 2px; border-radius: 6px; padding: 2px 8px;
-  }
-  .step p { color: var(--text-dim); font-size: 15px; }
+.eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.eyebrow::after { content: ""; height: 1px; flex: 0 0 48px; background: var(--line-strong); }
 
-  /* privacy strip */
-  .privacy {
-    background: var(--bg-raised); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 34px 32px;
-    display: flex; gap: 24px; align-items: center;
-  }
-  .privacy .shield { flex: none; width: 52px; height: 52px; }
-  .privacy h2 { text-align: left; font-size: 22px; }
-  .privacy p { color: var(--text-dim); margin-top: 4px; }
-  .privacy p strong { color: var(--text); }
+/* ---------------------------------- nav ---------------------------------- */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.nav-inner { display: flex; align-items: center; gap: 28px; height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-family: "Bricolage Grotesque", sans-serif; font-size: 1.05rem; letter-spacing: -0.01em; margin-right: auto; }
+.brand svg { width: 26px; height: 26px; }
+.nav-links { display: flex; gap: 4px; }
+.nav-links a {
+  text-decoration: none; color: var(--ink-dim); font-size: 0.92rem; font-weight: 500;
+  padding: 7px 12px; border-radius: 8px; transition: color 0.15s, background 0.15s;
+}
+.nav-links a:hover { color: var(--ink); background: var(--raised); }
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 9px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-dim);
+  cursor: pointer; transition: color 0.15s, border-color 0.15s, transform 0.1s;
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+.icon-btn:active { transform: scale(0.94); }
+.icon-btn svg { width: 17px; height: 17px; }
+#theme-toggle .moon { display: none; }
+:root[data-theme="dark"] #theme-toggle .sun { display: none; }
+:root[data-theme="dark"] #theme-toggle .moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) #theme-toggle .sun { display: none; }
+  :root:not([data-theme]) #theme-toggle .moon { display: block; }
+}
+@media (max-width: 780px) { .nav-links { display: none; } }
 
-  /* screenshots */
-  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-  .shot {
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px; text-align: center;
-  }
-  .shot img { max-width: 100%; height: auto; border-radius: 8px; }
-  .shot figcaption { color: var(--text-dim); font-size: 14px; margin-top: 12px; }
+/* ---------------------------------- hero ---------------------------------- */
+.hero { padding: clamp(56px, 9vh, 110px) 0 clamp(44px, 7vh, 80px); overflow: hidden; }
+.hero-grid {
+  display: grid; grid-template-columns: minmax(0, 6.5fr) minmax(0, 5.5fr);
+  gap: clamp(32px, 5vw, 72px); align-items: center;
+}
+.hero h1 {
+  font-size: clamp(2.7rem, 5.6vw, 4.3rem);
+  font-weight: 640;
+  margin: 22px 0 20px;
+}
+.hero h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+.hero-copy { color: var(--ink-dim); max-width: 30em; font-size: 1.1rem; }
+.hero-copy strong { color: var(--ink); font-weight: 600; }
+.cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 34px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 0.98rem; text-decoration: none;
+  padding: 13px 22px; border-radius: 12px;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.15s, border-color 0.15s;
+}
+.btn:active { transform: translateY(1px); }
+.btn svg { width: 17px; height: 17px; flex: none; }
+.btn-primary {
+  background: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.btn-primary:hover { box-shadow: 0 10px 30px -8px color-mix(in srgb, var(--accent) 85%, transparent); transform: translateY(-1px); }
+.btn-quiet { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
+.btn-quiet:hover { border-color: var(--ink-faint); }
+.cta-note { font-size: 0.85rem; color: var(--ink-faint); flex-basis: 100%; }
+.cta-note a { color: var(--ink-dim); }
 
-  /* features */
-  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-  .feature {
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px;
-  }
-  .feature h3 { font-size: 16px; margin-bottom: 4px; }
-  .feature h3::before { content: "▸ "; color: var(--accent); }
-  .feature p { color: var(--text-dim); font-size: 14.5px; }
+/* ------------------------------- live demo ------------------------------- */
+.demo { position: relative; }
+.editor {
+  background: var(--term-solid);
+  border: 1px solid var(--term-line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-big);
+  overflow: hidden;
+}
+.editor-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--term-line);
+  color: var(--term-dim);
+  font-family: "JetBrains Mono", monospace; font-size: 0.72rem;
+}
+.editor-bar .dots { display: flex; gap: 6px; }
+.editor-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--term-line); }
+.editor-bar .title { margin: 0 auto; letter-spacing: 0.04em; }
+.editor-body {
+  padding: 20px 22px 24px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem; line-height: 1.9;
+  color: var(--term-ink);
+  min-height: 208px;
+}
+.editor-body .dim { color: var(--term-dim); }
+.caret {
+  display: inline-block; width: 8px; height: 1.1em;
+  background: var(--live); vertical-align: text-bottom;
+  animation: blink 1.1s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
 
-  /* install */
-  .install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
-  .install-card {
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 24px;
-  }
-  .install-card h3 { font-size: 17px; margin-bottom: 4px; }
-  .install-card .hint { color: var(--text-dim); font-size: 14px; margin-bottom: 14px; }
-  pre {
-    background: #0c0f18; border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 16px; overflow-x: auto;
-    font: 13.5px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    color: #c9d2e8;
-  }
-  pre .c { color: #6b7590; }
-  .prereq { margin-bottom: 18px; }
-  .prereq summary { cursor: pointer; color: var(--text-dim); font-size: 14.5px; }
-  .prereq[open] summary { margin-bottom: 10px; }
-  .requirements { color: var(--text-dim); font-size: 14.5px; text-align: center; margin-top: 22px; }
+/* OSD pill that appears while "recording" */
+.osd {
+  position: absolute; left: 50%; bottom: 74px;
+  transform: translateX(-50%) translateY(8px);
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(10, 13, 23, 0.92);
+  border: 1px solid var(--term-line);
+  border-radius: 999px;
+  padding: 9px 18px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+}
+.demo.recording .osd { opacity: 1; transform: translateX(-50%) translateY(0); }
+.osd .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); animation: blink 1.2s steps(1) infinite; }
+.bars { display: flex; align-items: center; gap: 3px; height: 22px; }
+.bars i { width: 3.5px; border-radius: 2px; background: var(--live); height: 30%; }
+.demo.recording .bars i { animation: dance 0.7s ease-in-out infinite; }
+.bars i:nth-child(1) { animation-delay: 0.05s; } .bars i:nth-child(2) { animation-delay: 0.32s; }
+.bars i:nth-child(3) { animation-delay: 0.14s; } .bars i:nth-child(4) { animation-delay: 0.48s; }
+.bars i:nth-child(5) { animation-delay: 0.02s; } .bars i:nth-child(6) { animation-delay: 0.38s; }
+.bars i:nth-child(7) { animation-delay: 0.21s; } .bars i:nth-child(8) { animation-delay: 0.55s; }
+.bars i:nth-child(9) { animation-delay: 0.11s; } .bars i:nth-child(10){ animation-delay: 0.42s; }
+@keyframes dance { 0%,100% { height: 22%; } 50% { height: 95%; } }
+@media (prefers-reduced-motion: reduce) {
+  .demo.recording .bars i { animation: none; height: 70%; }
+  .osd .rec-dot { animation: none; }
+}
 
-  /* roadmap */
-  .roadmap { list-style: none; max-width: 620px; margin: 0 auto; }
-  .roadmap li {
-    display: flex; gap: 14px; align-items: baseline;
-    padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 15.5px;
-  }
-  .roadmap li:last-child { border-bottom: none; }
-  .roadmap .state { flex: none; width: 74px; font-size: 13px; font-weight: 600; }
-  .state.done { color: var(--green); }
-  .state.next { color: var(--accent); }
-  .state.later { color: var(--text-dim); }
-  .roadmap .what { color: var(--text-dim); }
-  .roadmap .what strong { color: var(--text); font-weight: 600; }
+/* the key you hold */
+.demo-controls {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin-top: 22px;
+}
+.keycap {
+  font-family: "JetBrains Mono", monospace; font-size: 1rem; font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 4px;
+  border-radius: 12px;
+  padding: 14px 30px;
+  cursor: pointer;
+  user-select: none; -webkit-user-select: none;
+  touch-action: none;
+  transition: border-bottom-width 0.06s, transform 0.06s, border-color 0.15s, box-shadow 0.15s;
+  box-shadow: var(--shadow);
+}
+.keycap:hover { border-color: var(--accent); }
+.demo.recording .keycap {
+  border-bottom-width: 1px; transform: translateY(3px);
+  border-color: var(--live);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--live) 18%, transparent);
+}
+.demo-hint { font-size: 0.85rem; color: var(--ink-faint); min-width: 15ch; }
+.demo-hint b { color: var(--ink-dim); font-weight: 600; }
 
-  footer {
-    border-top: 1px solid var(--border); padding: 36px 0 48px;
-    text-align: center; color: var(--text-dim); font-size: 14.5px;
-  }
-  footer .links { display: flex; gap: 22px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+/* ------------------------------- stat strip ------------------------------- */
+.strip { border-block: 1px solid var(--line); }
+.strip-inner {
+  display: flex; flex-wrap: wrap;
+  font-family: "JetBrains Mono", monospace; font-size: 0.78rem; letter-spacing: 0.02em;
+  color: var(--ink-dim);
+}
+.strip-inner span {
+  padding: 14px 26px 14px 0; margin-right: 26px;
+  display: inline-flex; align-items: center; gap: 9px;
+}
+.strip-inner span + span { border-left: 1px solid var(--line); padding-left: 26px; margin-left: -26px; }
+.strip-inner b { color: var(--ink); font-weight: 600; }
+.strip-inner .ok { color: var(--live); }
 
-  @media (max-width: 720px) {
-    header { padding: 52px 0 44px; }
-    section { padding: 48px 0; }
-    .steps, .shots, .install-grid { grid-template-columns: 1fr; }
-    .privacy { flex-direction: column; text-align: center; }
-    .privacy h2 { text-align: center; }
-  }
+/* ------------------------------- sections ------------------------------- */
+section { padding: clamp(64px, 10vh, 110px) 0; }
+.sec-head { max-width: 620px; margin-bottom: clamp(36px, 5vh, 56px); }
+.sec-head h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); margin: 18px 0 14px; }
+.sec-head p { color: var(--ink-dim); }
+
+/* how it works */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.step { background: var(--surface); padding: 30px 28px 34px; }
+.step .step-no {
+  font-family: "JetBrains Mono", monospace; font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.14em; color: var(--ink-faint);
+}
+.step h3 { font-size: 1.25rem; margin: 14px 0 10px; display: flex; align-items: center; gap: 10px; }
+.step p { color: var(--ink-dim); font-size: 0.95rem; }
+.step kbd {
+  font-size: 0.85rem; font-weight: 600;
+  background: var(--raised); border: 1px solid var(--line-strong); border-bottom-width: 3px;
+  border-radius: 8px; padding: 3px 10px;
+}
+
+/* privacy */
+.privacy { background: var(--surface); border-block: 1px solid var(--line); }
+.privacy-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 72px); align-items: center; }
+.privacy h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); margin: 18px 0 16px; }
+.privacy .privacy-copy p { color: var(--ink-dim); max-width: 32em; }
+.privacy .privacy-copy p + p { margin-top: 14px; }
+.privacy .privacy-copy strong { color: var(--ink); font-weight: 600; }
+.flow { display: flex; flex-direction: column; gap: 0; align-items: stretch; }
+.flow-node {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 20px;
+}
+.flow-node svg { width: 22px; height: 22px; color: var(--accent); flex: none; }
+.flow-node .t { font-weight: 600; font-size: 0.98rem; }
+.flow-node .d { color: var(--ink-faint); font-size: 0.83rem; display: block; }
+.flow-link { display: flex; justify-content: center; padding: 2px 0; color: var(--ink-faint); }
+.flow-link svg { width: 16px; height: 16px; }
+.flow-node.denied {
+  border-style: dashed; opacity: 0.75; background: transparent;
+}
+.flow-node.denied svg { color: var(--ink-faint); }
+.flow-node.denied .t { color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--rec); text-decoration-thickness: 2px; }
+.flow-node .nope {
+  margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.1em; color: var(--rec);
+  border: 1px solid color-mix(in srgb, var(--rec) 40%, transparent);
+  border-radius: 999px; padding: 2px 10px;
+}
+
+/* ------------------------------- bento ------------------------------- */
+.bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.cell {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  padding: 26px; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cell h3 { font-size: 1.1rem; }
+.cell > p { color: var(--ink-dim); font-size: 0.93rem; max-width: 40em; }
+.cell .art { margin-top: auto; }
+.c-tray { grid-column: span 5; grid-row: span 2; }
+.c-cli { grid-column: span 7; }
+.c-modes { grid-column: span 4; }
+.c-hotkey { grid-column: span 3; }
+.c-config { grid-column: span 7; }
+.c-first { grid-column: span 5; }
+@media (max-width: 900px) {
+  .c-tray, .c-cli, .c-modes, .c-hotkey, .c-config, .c-first { grid-column: span 12; }
+}
+
+/* tray menu recreation */
+.tray-window {
+  margin-top: 18px;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  font-size: 0.9rem;
+  max-width: 330px;
+}
+.tray-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 7px; color: var(--ink);
+}
+.tray-item:hover { background: var(--accent-wash); }
+.tray-item .check { width: 15px; text-align: center; color: var(--accent); font-weight: 700; flex: none; }
+.tray-item .sub { margin-left: auto; color: var(--ink-faint); font-size: 0.8rem; }
+.tray-status { padding: 9px 12px 7px; color: var(--ink-faint); font-size: 0.8rem; display: flex; align-items: center; gap: 8px; }
+.tray-status .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); }
+.tray-sep { height: 1px; background: var(--line); margin: 5px 8px; }
+
+/* terminal recreation */
+.term {
+  background: var(--term-solid); border: 1px solid var(--term-line); border-radius: 12px;
+  padding: 16px 18px; margin-top: 18px;
+  font-family: "JetBrains Mono", monospace; font-size: 0.8rem; line-height: 1.85;
+  color: var(--term-ink); overflow-x: auto;
+}
+.term .p { color: var(--term-dim); user-select: none; }
+.term .g { color: var(--live); }
+.term .a { color: var(--accent); }
+.term .cm { color: var(--term-dim); }
+
+/* small cells */
+.mode-pills { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.mode-pill {
+  font-family: "JetBrains Mono", monospace; font-size: 0.78rem; font-weight: 600;
+  padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--line-strong); color: var(--ink-dim);
+}
+.mode-pill.on { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+.big-kbd {
+  align-self: flex-start; margin-top: 16px;
+  font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 1.05rem;
+  background: var(--raised); border: 1px solid var(--line-strong); border-bottom-width: 4px;
+  border-radius: 10px; padding: 10px 18px;
+}
+.dl-track { margin-top: 18px; }
+.dl-track .row { display: flex; justify-content: space-between; font-family: "JetBrains Mono", monospace; font-size: 0.75rem; color: var(--ink-dim); margin-bottom: 8px; }
+.dl-bar { height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.dl-bar i { display: block; height: 100%; width: 62%; border-radius: 3px; background: var(--accent); }
+
+/* ------------------------------- install ------------------------------- */
+.install { background: var(--surface); border-block: 1px solid var(--line); }
+.install-grid { display: grid; grid-template-columns: minmax(0, 4.5fr) minmax(0, 7.5fr); gap: clamp(32px, 5vw, 64px); align-items: start; }
+.install-copy p { color: var(--ink-dim); margin-top: 14px; max-width: 30em; }
+.install-copy .fine { font-size: 0.88rem; color: var(--ink-faint); }
+.install-copy h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); margin-top: 18px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tab {
+  font-family: "JetBrains Mono", monospace; font-size: 0.8rem; font-weight: 600;
+  padding: 8px 16px; border-radius: 9px; cursor: pointer;
+  border: 1px solid transparent; color: var(--ink-dim); background: transparent;
+}
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { border-color: var(--line-strong); background: var(--bg); color: var(--ink); }
+.code-block { position: relative; }
+.code-block pre {
+  background: var(--term-solid); border: 1px solid var(--term-line); border-radius: 14px;
+  padding: 20px 22px; overflow-x: auto;
+  font-size: 0.82rem; line-height: 1.9; color: var(--term-ink);
+}
+.code-block .cm { color: var(--term-dim); }
+.code-block .g { color: var(--live); }
+.copy-btn {
+  position: absolute; top: 10px; right: 10px;
+  font-family: "JetBrains Mono", monospace; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--term-dim); background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--term-line); border-radius: 8px;
+  padding: 6px 12px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.copy-btn:hover { color: var(--term-ink); border-color: var(--term-dim); }
+.copy-btn.done { color: var(--live); border-color: var(--live); }
+.tab-panel[hidden] { display: none; }
+.prereq-note { margin-top: 14px; font-size: 0.85rem; color: var(--ink-faint); }
+.prereq-note code { font-size: 0.78rem; background: var(--raised); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; }
+
+/* ------------------------------- roadmap ------------------------------- */
+.timeline { max-width: 680px; }
+.tl-item { display: grid; grid-template-columns: 20px 1fr; gap: 18px; position: relative; padding-bottom: 30px; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-item::before {
+  content: ""; position: absolute; left: 9px; top: 24px; bottom: 2px; width: 2px;
+  background: var(--line);
+}
+.tl-item:last-child::before { display: none; }
+.tl-dot {
+  width: 20px; height: 20px; border-radius: 50%; margin-top: 3px;
+  border: 2px solid var(--line-strong); background: var(--bg);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.tl-item.done .tl-dot { border-color: var(--live); background: var(--live); color: var(--term-solid); }
+.tl-item.done .tl-dot svg { width: 11px; height: 11px; }
+.tl-item.next .tl-dot { border-color: var(--accent); }
+.tl-item.next .tl-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.tl-tag {
+  font-family: "JetBrains Mono", monospace; font-size: 0.68rem; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);
+}
+.tl-item.done .tl-tag { color: var(--live); }
+.tl-item.next .tl-tag { color: var(--accent); }
+.tl-body h3 { font-size: 1.15rem; margin: 3px 0 4px; }
+.tl-body p { color: var(--ink-dim); font-size: 0.95rem; max-width: 44em; }
+
+/* ------------------------------- footer ------------------------------- */
+footer { border-top: 1px solid var(--line); padding: clamp(48px, 8vh, 90px) 0 40px; overflow: hidden; }
+.foot-mark {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: clamp(3rem, 11vw, 8rem);
+  font-weight: 700; letter-spacing: -0.04em; line-height: 0.95;
+  color: var(--raised);
+  -webkit-text-stroke: 1px var(--line-strong);
+  user-select: none;
+  margin-bottom: 40px;
+}
+.foot-row { display: flex; flex-wrap: wrap; gap: 24px 36px; align-items: baseline; justify-content: space-between; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 8px 26px; font-size: 0.92rem; }
+.foot-links a { color: var(--ink-dim); text-decoration: none; }
+.foot-links a:hover { color: var(--ink); text-decoration: underline; }
+.foot-legal { font-size: 0.85rem; color: var(--ink-faint); max-width: 46em; }
+.foot-legal a { color: var(--ink-dim); }
+
+/* ------------------------------- reveal ------------------------------- */
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+@media (max-width: 900px) {
+  .hero-grid, .privacy-grid, .install-grid { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr; }
+  .hero { padding-top: 40px; }
+}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="wrap">
-    <svg class="logo" viewBox="0 0 64 64" role="img" aria-label="AgentWhisper logo">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#2b3245"/>
-          <stop offset="1" stop-color="#171c2a"/>
-        </linearGradient>
-      </defs>
-      <rect x="3" y="3" width="58" height="58" rx="14" fill="url(#bg)" stroke="#3a4258" stroke-width="1"/>
-      <rect x="26" y="13" width="12" height="22" rx="6" fill="#f4f6fb"/>
-      <path d="M20 30v3a12 12 0 0 0 24 0v-3" fill="none" stroke="#f4f6fb" stroke-width="4" stroke-linecap="round"/>
-      <line x1="32" y1="45" x2="32" y2="50" stroke="#f4f6fb" stroke-width="4" stroke-linecap="round"/>
-      <line x1="25" y1="50" x2="39" y2="50" stroke="#f4f6fb" stroke-width="4" stroke-linecap="round"/>
-      <path d="M48 8l2.2 5.8L56 16l-5.8 2.2L48 24l-2.2-5.8L40 16l5.8-2.2z" fill="#8b7bff"/>
-    </svg>
-
-    <div class="badges">
-      <span class="badge"><strong>v0.3</strong>&nbsp;· deployable</span>
-      <span class="badge">Linux · X11</span>
-      <span class="badge">MIT license</span>
-      <span class="badge">100% offline</span>
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top" aria-label="AgentWhisper — back to top">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="3" y="3" width="58" height="58" rx="14" fill="#171c2a"/>
+        <rect x="26" y="13" width="12" height="22" rx="6" fill="#f4f6fb"/>
+        <path d="M20 30v3a12 12 0 0 0 24 0v-3" fill="none" stroke="#f4f6fb" stroke-width="4" stroke-linecap="round"/>
+        <line x1="32" y1="45" x2="32" y2="50" stroke="#f4f6fb" stroke-width="4" stroke-linecap="round"/>
+        <line x1="25" y1="50" x2="39" y2="50" stroke="#f4f6fb" stroke-width="4" stroke-linecap="round"/>
+        <path d="M48 8l2.2 5.8L56 16l-5.8 2.2L48 24l-2.2-5.8L40 16l5.8-2.2z" fill="#8b7bff"/>
+      </svg>
+      AgentWhisper
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#private">Private</a>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="#roadmap">Roadmap</a>
     </div>
-
-    <h1>Agent<span class="spark">Whisper</span></h1>
-    <p class="tagline">Push-to-talk dictation for Linux. Hold a key, speak, release — your words are typed into whatever you're writing.</p>
-    <p class="subline">Transcribed entirely on your own computer with Whisper. No cloud, no account, no audio ever leaving your machine.</p>
-
-    <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/ChrisSchroedinger/AgentWhisper/releases/latest">
-        <svg viewBox="0 0 16 16"><path d="M8 12L3 7h3V1h4v6h3L8 12zm-6 2h12v2H2v-2z"/></svg>
-        Download .deb
-      </a>
-      <a class="btn btn-ghost" href="https://github.com/ChrisSchroedinger/AgentWhisper">
-        <svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
-        View on GitHub
+    <div class="nav-actions">
+      <button class="icon-btn" id="theme-toggle" aria-label="Switch color theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.3 4.3l1.8 1.8M17.9 17.9l1.8 1.8M2.5 12H5M19 12h2.5M4.3 19.7l1.8-1.8M17.9 6.1l1.8-1.8"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+      </button>
+      <a class="icon-btn" href="https://github.com/ChrisSchroedinger/AgentWhisper" aria-label="AgentWhisper on GitHub">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
       </a>
     </div>
+  </div>
+</nav>
 
-    <div class="viz" aria-hidden="true">
-      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Push-to-talk dictation · Linux · 100% on-device</p>
+      <h1>Hold a key.<br>Speak. It's <em>already typed.</em></h1>
+      <p class="hero-copy">AgentWhisper turns your voice into text <strong>on your own computer</strong> — typed straight into whatever you're writing, with a copy in your clipboard. No cloud, no account, no internet after setup.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/ChrisSchroedinger/AgentWhisper/releases/latest">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 12L3 7h3V1h4v6h3L8 12zm-6 2h12v2H2v-2z"/></svg>
+          Download for Debian/Ubuntu
+        </a>
+        <a class="btn btn-quiet" href="https://github.com/ChrisSchroedinger/AgentWhisper">View source</a>
+        <span class="cta-note">v0.3 · free &amp; open source (MIT) · X11 · also <a href="#install">installable from source</a></span>
+      </div>
+    </div>
+
+    <div class="demo" id="demo">
+      <div class="editor" role="img" aria-label="Simulated text editor demonstrating dictation">
+        <div class="editor-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="title">notes.txt</span>
+        </div>
+        <div class="editor-body">
+          <div class="dim"># Friday, drafted by voice:</div>
+          <div><span id="typed"></span><span class="caret" aria-hidden="true"></span></div>
+        </div>
+      </div>
+      <div class="osd" aria-hidden="true">
+        <span class="rec-dot"></span>
+        <span class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      </div>
+      <div class="demo-controls">
+        <button class="keycap" id="keycap" aria-label="Hold this button to run the dictation demo">F12</button>
+        <p class="demo-hint" id="demo-hint"><b>Try it:</b> click &amp; hold</p>
+      </div>
     </div>
   </div>
 </header>
 
+<div class="strip">
+  <div class="wrap strip-inner">
+    <span><b class="ok">●</b> works fully offline</span>
+    <span><b>0</b> accounts, API keys or telemetry</span>
+    <span><b>~2s</b> from release to typed text</span>
+    <span><b>59</b> tests</span>
+    <span><b>MIT</b> licensed</span>
+  </div>
+</div>
+
 <main>
   <section id="how">
     <div class="wrap">
-      <h2>How it works</h2>
-      <p class="section-sub">One key. No windows to open, no buttons to click, no waiting for a browser tab.</p>
-      <div class="steps">
+      <div class="sec-head reveal">
+        <p class="eyebrow">How it works</p>
+        <h2>One key. No windows, no buttons, no browser tab.</h2>
+        <p>The whole interaction fits between pressing and releasing a single key — by default F12, but any key you like.</p>
+      </div>
+      <div class="steps reveal">
         <div class="step">
-          <span class="num">1</span>
+          <span class="step-no">STEP 1</span>
           <h3>Hold <kbd>F12</kbd></h3>
-          <p>While AgentWhisper runs, the key belongs to it alone — no other program will see it, so nothing fires by accident.</p>
+          <p>While AgentWhisper runs, the key belongs to it exclusively — no other program sees it, so nothing fires by accident.</p>
         </div>
         <div class="step">
-          <span class="num">2</span>
+          <span class="step-no">STEP 2</span>
           <h3>Speak</h3>
-          <p>A small translucent panel floats near the bottom of your screen with green bars dancing to your voice — you always know when the mic is live.</p>
+          <p>A translucent panel floats at the bottom of your screen, green bars dancing to your voice — you always know when the mic is live.</p>
         </div>
         <div class="step">
-          <span class="num">3</span>
+          <span class="step-no">STEP 3</span>
           <h3>Release</h3>
-          <p>Your words are typed straight into the window you were working in, and land in your clipboard as backup. A notification confirms what was heard.</p>
+          <p>Your words are typed into the window you were working in and land in your clipboard as backup. A notification shows what was heard.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="privacy">
-    <div class="wrap">
-      <div class="privacy">
-        <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 2l8 3.5V11c0 5-3.4 8.8-8 11-4.6-2.2-8-6-8-11V5.5L12 2z"/>
-          <path d="M8.5 12l2.5 2.5 4.5-4.5"/>
-        </svg>
-        <div>
-          <h2>Your voice never leaves your computer</h2>
-          <p>Speech recognition runs locally via <strong>faster-whisper</strong> — OpenAI's Whisper model on your own CPU. One guided ~140&nbsp;MB model download on first run, then it works <strong>fully offline</strong>. No account, no API key, no telemetry.</p>
-        </div>
+  <section class="privacy" id="private">
+    <div class="wrap privacy-grid">
+      <div class="privacy-copy reveal">
+        <p class="eyebrow">Private by architecture</p>
+        <h2>Your voice never leaves this machine.</h2>
+        <p>Speech recognition runs locally through <strong>faster-whisper</strong> — OpenAI's Whisper model on your own CPU. Nothing to sign up for, nothing phoning home, nothing to subscribe to.</p>
+        <p>One guided ~140&nbsp;MB model download on first run, then AgentWhisper works <strong>entirely offline</strong>. Unplug the router; it won't notice.</p>
       </div>
-    </div>
-  </section>
-
-  <section id="shots">
-    <div class="wrap">
-      <h2>What it looks like</h2>
-      <p class="section-sub">A microphone in your system tray that turns red while recording — and that's all the UI there is.</p>
-      <div class="shots">
-        <figure class="shot">
-          <img src="icon-states.png" alt="The tray icon in its idle and recording states" loading="lazy">
-          <figcaption>The tray icon: idle, and red while recording.</figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="osd-recording.png" alt="The floating recording panel with green voice-level bars" loading="lazy">
-          <figcaption>The recording panel — green bars follow your voice.</figcaption>
-        </figure>
+      <div class="flow reveal" aria-label="Audio path: microphone to Whisper on your CPU to your clipboard. Cloud APIs: no connection.">
+        <div class="flow-node">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5"/></svg>
+          <span><span class="t">Your microphone</span><span class="d">captured only while the key is held</span></span>
+        </div>
+        <div class="flow-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v14m0 0l-5-5m5 5l5-5"/></svg></div>
+        <div class="flow-node">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 1.5v3M15 1.5v3M9 19.5v3M15 19.5v3M1.5 9h3M1.5 15h3M19.5 9h3M19.5 15h3"/></svg>
+          <span><span class="t">Whisper, on your CPU</span><span class="d">transcribed in seconds, models from tiny to medium</span></span>
+        </div>
+        <div class="flow-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v14m0 0l-5-5m5 5l5-5"/></svg></div>
+        <div class="flow-node">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"/><path d="M2 17h20l-1.5 3h-17L2 17z"/></svg>
+          <span><span class="t">Your active window</span><span class="d">typed for you + copied to the clipboard</span></span>
+        </div>
+        <div class="flow-link" aria-hidden="true"></div>
+        <div class="flow-node denied">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 18.5H7a4.5 4.5 0 0 1-.4-9A6 6 0 0 1 18 10.5a4 4 0 0 1-.5 8z"/></svg>
+          <span class="t">Cloud speech APIs</span>
+          <span class="nope">NO CONNECTION</span>
+        </div>
       </div>
     </div>
   </section>
 
   <section id="features">
     <div class="wrap">
-      <h2>Small tool, done properly</h2>
-      <p class="section-sub">Everything you need for daily dictation, nothing you don't.</p>
-      <div class="features">
-        <div class="feature">
-          <h3>Lives in your tray</h3>
-          <p>Pause and resume, switch modes, toggle auto-type — every control is two clicks away in the tray menu.</p>
+      <div class="sec-head reveal">
+        <p class="eyebrow">Features</p>
+        <h2>A small tool, finished properly.</h2>
+        <p>Everything you need for daily dictation and nothing you don't — controlled from a tray icon, a config file, or your terminal.</p>
+      </div>
+      <div class="bento">
+        <div class="cell c-tray reveal">
+          <h3>Lives in your system tray</h3>
+          <p>A microphone icon that turns red while recording. Every control is two clicks away — this is the entire menu:</p>
+          <div class="art tray-window" role="img" aria-label="Recreation of the AgentWhisper tray menu">
+            <div class="tray-status"><span class="live-dot"></span>Ready — hold F12 and speak</div>
+            <div class="tray-sep"></div>
+            <div class="tray-item"><span class="check">✓</span>Enabled</div>
+            <div class="tray-item"><span class="check">✓</span>Auto-Type into active window</div>
+            <div class="tray-item"><span class="check">✓</span>Notifications</div>
+            <div class="tray-item"><span class="check"></span>Start at login</div>
+            <div class="tray-item"><span class="check"></span>Recording Mode<span class="sub">Hold to talk ▸</span></div>
+            <div class="tray-sep"></div>
+            <div class="tray-item"><span class="check"></span>Quit AgentWhisper</div>
+          </div>
         </div>
-        <div class="feature">
+
+        <div class="cell c-cli reveal">
+          <h3>Scriptable from the terminal</h3>
+          <p>The same controls as the tray, for your keybindings and scripts.</p>
+          <div class="art term" role="img" aria-label="Terminal session showing agentwhisper CLI commands">
+            <div><span class="p">$</span> agentwhisper status</div>
+            <div><span class="g">daemon: running</span> · engine: ready · mode: hold · key: f12</div>
+            <div><span class="p">$</span> agentwhisper mode toggle <span class="cm"># tap to start, tap to stop</span></div>
+            <div><span class="p">$</span> agentwhisper autostart on <span class="cm"># start with your session</span></div>
+          </div>
+        </div>
+
+        <div class="cell c-modes reveal">
           <h3>Two recording modes</h3>
-          <p>Hold-to-talk (hold F12, release to finish) or press-to-toggle (tap to start, tap to stop). Switch anytime.</p>
+          <p>Hold-to-talk, or tap once to start and once to stop. Switch anytime from the tray.</p>
+          <div class="art mode-pills">
+            <span class="mode-pill on">hold to talk</span>
+            <span class="mode-pill">press to toggle</span>
+          </div>
         </div>
-        <div class="feature">
-          <h3>Auto-type or clipboard-only</h3>
-          <p>Have text typed into the active window for you, or turn auto-type off and paste with Ctrl+V when you're ready.</p>
+
+        <div class="cell c-hotkey reveal">
+          <h3>Any key you like</h3>
+          <p>F1–F12, Scroll Lock, Pause… reserved exclusively while it runs.</p>
+          <span class="art big-kbd">F12 ⇄</span>
         </div>
-        <div class="feature">
-          <h3>Starts with your session</h3>
-          <p>Optional start-at-login from the tray menu or <code>agentwhisper autostart on</code>.</p>
+
+        <div class="cell c-config reveal">
+          <h3>Configured in one commented file</h3>
+          <p>Pick the key, the model, auto-type behavior and recording limits in <code>~/.config/agentwhisper/config.toml</code>.</p>
+          <div class="art term" role="img" aria-label="Excerpt of the config.toml file">
+            <div><span class="cm"># The push-to-talk key</span></div>
+            <div>key = <span class="a">"f12"</span></div>
+            <div><span class="cm"># tiny.en (fastest) … medium.en (most accurate)</span></div>
+            <div>model = <span class="a">"base.en"</span></div>
+            <div>auto_type = <span class="a">true</span></div>
+          </div>
         </div>
-        <div class="feature">
-          <h3>Guided first run</h3>
-          <p>The speech model downloads in the background with live progress in the tray; dictations made meanwhile are queued, not lost.</p>
-        </div>
-        <div class="feature">
-          <h3>Yours to configure</h3>
-          <p>A commented <code>config.toml</code>: pick the key, the Whisper model (tiny to medium), recording limits and more.</p>
-        </div>
-        <div class="feature">
-          <h3>Scriptable CLI</h3>
-          <p><code>agentwhisper status / toggle / mode / quit</code> — the same controls from your terminal or keybindings.</p>
-        </div>
-        <div class="feature">
-          <h3>Honest diagnostics</h3>
-          <p><code>agentwhisper status</code> tells you exactly what's missing and how to fix it — including the apt command to run.</p>
+
+        <div class="cell c-first reveal">
+          <h3>A first run that holds your hand</h3>
+          <p>The speech model downloads in the background with live progress in the tray. Dictations made meanwhile are queued, not lost.</p>
+          <div class="art dl-track" role="img" aria-label="Model download progress at 62 percent">
+            <div class="row"><span>whisper base.en</span><span>62% · 87 MB / 140 MB</span></div>
+            <div class="dl-bar"><i></i></div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="install">
-    <div class="wrap">
-      <h2>Install in two minutes</h2>
-      <p class="section-sub">For Debian/Ubuntu with X11. Everything lands in your home directory — easy in, easy out.</p>
-
-      <details class="prereq">
-        <summary>Prerequisite: a few small system packages (one apt line, most preinstalled on XFCE)</summary>
-        <pre>sudo apt install python3-gi python3-gi-cairo gir1.2-ayatanaappindicator3-0.1 \
-                 xclip xdotool libnotify-bin</pre>
-      </details>
-
-      <div class="install-grid">
-        <div class="install-card">
-          <h3>Option A — .deb package</h3>
-          <p class="hint">System-wide install, managed by apt.</p>
-          <pre><span class="c"># download from the latest release, then:</span>
-sudo apt install ./agentwhisper_*.deb</pre>
-        </div>
-        <div class="install-card">
-          <h3>Option B — from source</h3>
-          <p class="hint">Lives in your home directory, no root needed.</p>
-          <pre>git clone https://github.com/ChrisSchroedinger/agentwhisper.git
-cd agentwhisper &amp;&amp; ./install.sh</pre>
-        </div>
+  <section class="install" id="install">
+    <div class="wrap install-grid">
+      <div class="install-copy reveal">
+        <p class="eyebrow">Install</p>
+        <h2>Two minutes, in or out.</h2>
+        <p>Built for Debian/Ubuntu with X11 and Python 3.11+. Everything lands in predictable places, and <code class="mono">uninstall.sh</code> removes it all again.</p>
+        <p class="fine">Full walkthrough and troubleshooting in the <a href="https://github.com/ChrisSchroedinger/AgentWhisper/wiki/Installation">installation guide</a>.</p>
       </div>
+      <div class="reveal">
+        <div class="tabs" role="tablist" aria-label="Installation method">
+          <button class="tab" role="tab" id="tab-deb" aria-selected="true" aria-controls="panel-deb">.deb package</button>
+          <button class="tab" role="tab" id="tab-src" aria-selected="false" aria-controls="panel-src">from source</button>
+        </div>
+        <div class="tab-panel code-block" id="panel-deb" role="tabpanel" aria-labelledby="tab-deb">
+          <button class="copy-btn" data-copy="sudo apt install python3-gi python3-gi-cairo gir1.2-ayatanaappindicator3-0.1 xclip xdotool libnotify-bin
+sudo apt install ./agentwhisper_0.3.7_all.deb">copy</button>
+<pre><span class="cm"># system packages for tray, typing, clipboard (most preinstalled on XFCE)</span>
+<span class="g">sudo</span> apt install python3-gi python3-gi-cairo \
+     gir1.2-ayatanaappindicator3-0.1 xclip xdotool libnotify-bin
 
-      <p class="requirements">Needs Linux with X11 (not Wayland), Python 3.11+, and a microphone. English models in v0.3.<br>
-      Full details in the <a href="https://github.com/ChrisSchroedinger/AgentWhisper/wiki/Installation">installation guide</a>.</p>
+<span class="cm"># grab the .deb from the latest release, then:</span>
+<span class="g">sudo</span> apt install ./agentwhisper_0.3.7_all.deb</pre>
+        </div>
+        <div class="tab-panel code-block" id="panel-src" role="tabpanel" aria-labelledby="tab-src" hidden>
+          <button class="copy-btn" data-copy="git clone https://github.com/ChrisSchroedinger/agentwhisper.git
+cd agentwhisper
+./install.sh">copy</button>
+<pre><span class="cm"># no root needed — installs into your home directory</span>
+git clone https://github.com/ChrisSchroedinger/agentwhisper.git
+<span class="g">cd</span> agentwhisper
+./install.sh</pre>
+        </div>
+        <p class="prereq-note">Then start <b>AgentWhisper</b> from your applications menu — the mic appears in your tray.</p>
+      </div>
     </div>
   </section>
 
   <section id="roadmap">
     <div class="wrap">
-      <h2>Where it's going</h2>
-      <p class="section-sub">v0.3 does everything on the box today. The name is the roadmap.</p>
-      <ul class="roadmap">
-        <li><span class="state done">done</span><span class="what"><strong>Core dictation</strong> — exclusive hotkey, local transcription, auto-type, tray, autostart, .deb</span></li>
-        <li><span class="state next">next</span><span class="what"><strong>AppImage</strong> — one file that runs on any distro, no install script</span></li>
-        <li><span class="state later">later</span><span class="what"><strong>More languages &amp; Wayland</strong></span></li>
-        <li><span class="state later">later</span><span class="what"><strong>Agent mode</strong> — push-to-talk straight into your AI coding agent: speak to your computer, watch it work</span></li>
-      </ul>
+      <div class="sec-head reveal">
+        <p class="eyebrow">Roadmap</p>
+        <h2>The name is the roadmap.</h2>
+        <p>v0.3 does everything on the box today. Where it goes next:</p>
+      </div>
+      <div class="timeline reveal">
+        <div class="tl-item done">
+          <span class="tl-dot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8.5l3.5 3.5 7-8"/></svg></span>
+          <div class="tl-body">
+            <span class="tl-tag">shipped · v0.1 – v0.3</span>
+            <h3>Core dictation</h3>
+            <p>Exclusive hotkey, local transcription, auto-type, tray menu, voice visualizer, autostart, guided model download, .deb package.</p>
+          </div>
+        </div>
+        <div class="tl-item next">
+          <span class="tl-dot"></span>
+          <div class="tl-body">
+            <span class="tl-tag">next</span>
+            <h3>AppImage</h3>
+            <p>One file that runs on any distro — no install script, no packaging dance.</p>
+          </div>
+        </div>
+        <div class="tl-item">
+          <span class="tl-dot"></span>
+          <div class="tl-body">
+            <span class="tl-tag">later</span>
+            <h3>More languages &amp; Wayland</h3>
+            <p>v0.3 ships English models; the engine underneath already speaks 90+ languages.</p>
+          </div>
+        </div>
+        <div class="tl-item">
+          <span class="tl-dot"></span>
+          <div class="tl-body">
+            <span class="tl-tag">later · the namesake</span>
+            <h3>Agent mode</h3>
+            <p>Push-to-talk straight into your AI coding agent: speak to your computer, watch it work.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 </main>
 
 <footer>
   <div class="wrap">
-    <div class="links">
-      <a href="https://github.com/ChrisSchroedinger/AgentWhisper">GitHub</a>
-      <a href="https://github.com/ChrisSchroedinger/AgentWhisper/wiki">Wiki</a>
-      <a href="https://github.com/ChrisSchroedinger/AgentWhisper/releases">Releases</a>
-      <a href="https://github.com/ChrisSchroedinger/AgentWhisper/blob/main/CHANGELOG.md">Changelog</a>
-      <a href="https://github.com/ChrisSchroedinger/AgentWhisper/blob/main/DESIGN.md">Design notes</a>
+    <div class="foot-mark" aria-hidden="true">AgentWhisper</div>
+    <div class="foot-row">
+      <div class="foot-links">
+        <a href="https://github.com/ChrisSchroedinger/AgentWhisper">GitHub</a>
+        <a href="https://github.com/ChrisSchroedinger/AgentWhisper/wiki">Wiki</a>
+        <a href="https://github.com/ChrisSchroedinger/AgentWhisper/releases">Releases</a>
+        <a href="https://github.com/ChrisSchroedinger/AgentWhisper/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="https://github.com/ChrisSchroedinger/AgentWhisper/blob/main/DESIGN.md">Design notes</a>
+      </div>
+      <p class="foot-legal">MIT license · © 2026 Chris Schroedinger · built in the open, pair-programmed with AI — <a href="https://github.com/ChrisSchroedinger/AgentWhisper/commits/main">the commit history says so</a>.</p>
     </div>
-    <p>MIT license · © 2026 Chris Schroedinger · built in the open, pair-programmed with AI — <a href="https://github.com/ChrisSchroedinger/AgentWhisper/commits/main">the commit history says so</a></p>
   </div>
 </footer>
+
+<script>
+/* ------------------------------ theme toggle ------------------------------ */
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-toggle');
+  function effective() {
+    if (root.dataset.theme) return root.dataset.theme;
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  btn.addEventListener('click', function () {
+    var next = effective() === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('aw-theme', next); } catch (e) {}
+  });
+})();
+
+/* ------------------------------- live demo ------------------------------- */
+(function () {
+  var demo = document.getElementById('demo');
+  var keycap = document.getElementById('keycap');
+  var typed = document.getElementById('typed');
+  var hint = document.getElementById('demo-hint');
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var sentences = [
+    "Push to talk, release to type. This sentence never touched a keyboard.",
+    "Draft the release notes and remind me to test on a clean machine.",
+    "Dear diary: today my computer finally listened to me. Literally.",
+    "Note to self — the microphone is mightier than the keyboard."
+  ];
+  var si = 0, timer = null, autoTimer = null, state = 'idle', userDrove = false;
+
+  function setHint(html) { hint.innerHTML = html; }
+
+  function startRec() {
+    clearTimeout(timer); clearTimeout(autoTimer);
+    if (state === 'recording') return;
+    state = 'recording';
+    typed.textContent = '';
+    demo.classList.add('recording');
+    setHint('<b>listening…</b> release when done');
+  }
+
+  function stopRec() {
+    if (state !== 'recording') return;
+    state = 'transcribing';
+    demo.classList.remove('recording');
+    setHint('transcribing…');
+    timer = setTimeout(type, reduced ? 60 : 420);
+  }
+
+  function type() {
+    state = 'typing';
+    var text = sentences[si % sentences.length]; si++;
+    if (reduced) { typed.textContent = text; finish(); return; }
+    var i = 0;
+    (function tick() {
+      typed.textContent = text.slice(0, ++i);
+      if (i < text.length) { timer = setTimeout(tick, 26 + Math.random() * 30); }
+      else { finish(); }
+    })();
+  }
+
+  function finish() {
+    state = 'idle';
+    setHint(userDrove ? 'typed &amp; copied ✓ — hold again' : '<b>Try it:</b> click &amp; hold');
+    if (!userDrove) scheduleAuto(5200);
+  }
+
+  /* user control: pointer + keyboard (Space/Enter while focused) */
+  keycap.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); userDrove = true;
+    keycap.setPointerCapture(e.pointerId);
+    startRec();
+  });
+  keycap.addEventListener('pointerup', stopRec);
+  keycap.addEventListener('pointercancel', stopRec);
+  keycap.addEventListener('keydown', function (e) {
+    if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); userDrove = true; startRec(); }
+  });
+  keycap.addEventListener('keyup', function (e) {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); stopRec(); }
+  });
+
+  /* ambient auto-demo until the visitor takes over */
+  function scheduleAuto(delay) {
+    if (reduced || userDrove) return;
+    autoTimer = setTimeout(function () {
+      if (userDrove || state !== 'idle') return;
+      startRec(); userDrove = false;           /* startRec sets hint for users; restore ambient hint */
+      setHint('<b>Try it:</b> click &amp; hold');
+      autoTimer = setTimeout(function () { if (state === 'recording') stopRec(); }, 2100);
+    }, delay);
+  }
+  if (!reduced) { scheduleAuto(1400); } else { typed.textContent = sentences[0]; si = 1; }
+})();
+
+/* --------------------------------- tabs --------------------------------- */
+(function () {
+  var tabs = [document.getElementById('tab-deb'), document.getElementById('tab-src')];
+  var panels = { 'tab-deb': document.getElementById('panel-deb'), 'tab-src': document.getElementById('panel-src') };
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) {
+        t.setAttribute('aria-selected', String(t === tab));
+        panels[t.id].hidden = t !== tab;
+      });
+    });
+  });
+})();
+
+/* ------------------------------ copy buttons ------------------------------ */
+document.querySelectorAll('.copy-btn').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    navigator.clipboard.writeText(btn.dataset.copy).then(function () {
+      btn.textContent = 'copied ✓'; btn.classList.add('done');
+      setTimeout(function () { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1600);
+    });
+  });
+});
+
+/* ---------------------------- scroll reveals ---------------------------- */
+(function () {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
+    document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+    });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+})();
+</script>
 
 </body>
 </html>
