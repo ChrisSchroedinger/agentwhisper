@@ -50,8 +50,11 @@ class FakeDesktop:
     def __init__(self, type_error=None):
         self.copied: list[str] = []
         self.typed: list[str] = []
+        self.sent: list[tuple[str, str]] = []  # (window_id, text) + Enter
         self.notifications: list[tuple[str, str]] = []
         self.type_error = type_error
+        self.windows: dict[str, str] = {}  # id -> title of live windows
+        self.select_result = ("0x123", "Agent Terminal")
 
     def check(self):
         return []
@@ -63,6 +66,17 @@ class FakeDesktop:
         if self.type_error:
             raise self.type_error
         self.typed.append(text)
+
+    def select_window(self):
+        window_id, title = self.select_result
+        self.windows[window_id] = title
+        return window_id, title
+
+    def window_title(self, window_id):
+        return self.windows.get(window_id)
+
+    def type_into_window(self, window_id, text):
+        self.sent.append((window_id, text))
 
     def notify(self, summary, body=""):
         self.notifications.append((summary, body))
@@ -190,3 +204,43 @@ class TestDelivery:
         _summary, body = daemon.desktop.notifications[-1]
         assert len(body) <= 80
         assert body.endswith("…")
+
+
+class TestTargetWindow:
+    def test_target_gets_text_normal_typing_skipped(self):
+        daemon = make_daemon(auto_type=True)
+        assert daemon.choose_target_window() == "Agent Terminal"
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.sent == [("0x123", "hello world")]
+        assert daemon.desktop.typed == []                  # target replaces auto-type
+        assert daemon.desktop.copied == ["hello world"]    # clipboard backup stays
+        assert daemon.desktop.notifications[-1][0] == "Sent to Agent Terminal"
+
+    def test_target_overrides_auto_type_off(self):
+        daemon = make_daemon(auto_type=False)
+        daemon.choose_target_window()
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.sent == [("0x123", "hello world")]
+
+    def test_closed_target_falls_back_and_clears(self):
+        daemon = make_daemon(auto_type=True)
+        daemon.choose_target_window()
+        del daemon.desktop.windows["0x123"]  # the window went away
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.sent == []
+        assert daemon.desktop.typed == ["hello world"]  # delivered normally
+        assert daemon.get_target_title() is None        # and the target is gone
+        assert any(s == "Target window closed"
+                   for s, _ in daemon.desktop.notifications)
+
+    def test_clear_target_restores_normal_delivery(self):
+        daemon = make_daemon(auto_type=True)
+        daemon.choose_target_window()
+        daemon.clear_target_window()
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.sent == []
+        assert daemon.desktop.typed == ["hello world"]

@@ -2,6 +2,19 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.9 — 2026-07-09
+
+### Added
+- Dictate into one window: click any window once (tray → *Dictate into
+  one window…*, or `agentwhisper target choose`) and from then on every
+  dictation is typed into that window and submitted with Enter — no
+  matter which window is focused. Made for talking to an AI agent in a
+  terminal while you work elsewhere. The window is raised each time,
+  the clipboard still gets a copy of every dictation, and if the
+  chosen window closes, AgentWhisper says so and goes back to normal
+  typing. The choice lasts until you clear it or quit (window ids
+  don't survive restarts, so it is not saved to config.toml).
+
 ## 0.3.8 — 2026-07-09
 
 ### Added

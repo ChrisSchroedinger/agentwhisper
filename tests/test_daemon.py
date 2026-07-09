@@ -30,6 +30,15 @@ class _FakeDesktop:
     def type_text(self, text):
         pass
 
+    def select_window(self):
+        return ("0xabc", "Terminal")
+
+    def window_title(self, window_id):
+        return "Terminal"
+
+    def type_into_window(self, window_id, text):
+        pass
+
     def notify(self, summary, body=""):
         pass
 
@@ -55,6 +64,7 @@ class TestHandleRequest:
         assert s["notifications"] is True
         assert s["mode"] == "hold"
         assert s["max_record_seconds"] == 60
+        assert s["target_window"] is None
         assert isinstance(s["autostart"], bool)
         assert s["hotkey"] == "f12"
         assert s["hotkey_status"] == "inactive"
@@ -98,6 +108,15 @@ class TestHandleRequest:
         response = daemon.handle_request({"cmd": "set-limit", "seconds": seconds})
         assert response["ok"] is False
         assert daemon.config.max_record_seconds == 60
+
+    def test_set_and_clear_target(self, daemon):
+        response = daemon.handle_request({"cmd": "set-target"})
+        assert response["ok"] is True
+        assert response["target_window"] == "Terminal"
+        assert daemon.handle_request({"cmd": "status"})["target_window"] == "Terminal"
+        response = daemon.handle_request({"cmd": "clear-target"})
+        assert response["ok"] is True
+        assert daemon.handle_request({"cmd": "status"})["target_window"] is None
 
     def test_set_autostart(self, daemon, monkeypatch, tmp_path):
         from agentwhisper import autostart

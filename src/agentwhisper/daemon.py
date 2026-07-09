@@ -41,6 +41,10 @@ LOG_PATH = LOG_DIR / "daemon.log"
 MIN_RECORDING_SECONDS = 0.3
 
 
+def _shorten(title: str, limit: int = 40) -> str:
+    return title if len(title) <= limit else title[: limit - 1] + "…"
+
+
 class Daemon:
     """Wires hotkey events through the state machine to real effects."""
 
@@ -59,6 +63,9 @@ class Daemon:
         self._shutdown = threading.Event()
         self._tray = None
         self._visualizer = None
+        # Session-only (window ids do not survive restarts): when set,
+        # every dictation is typed into this window and submitted.
+        self._target_window: tuple[str, str] | None = None  # (id, title)
         self._settle_timer: threading.Timer | None = None
         self._max_timer: threading.Timer | None = None
 
@@ -202,8 +209,13 @@ class Daemon:
 
     def _deliver(self, text: str) -> None:
         """Clipboard always; typing on top when enabled. Clipboard goes
-        first so the text is safe even if typing fails."""
+        first so the text is safe even if typing fails. A chosen target
+        window takes precedence over normal typing (and ignores the
+        auto-type switch — the user explicitly picked a destination)."""
         self.desktop.copy(text)
+        preview = text if len(text) <= 80 else text[:77] + "…"
+        if self._target_window is not None and self._deliver_to_target(text, preview):
+            return
         typed = False
         if self.config.auto_type:
             try:
@@ -215,8 +227,28 @@ class Daemon:
                 return
         log.info("transcribed %d characters → %s", len(text),
                  "typed + clipboard" if typed else "clipboard")
-        preview = text if len(text) <= 80 else text[:77] + "…"
         self._notify("Typed & copied" if typed else "Copied to clipboard", preview)
+
+    def _deliver_to_target(self, text: str, preview: str) -> bool:
+        """Type into the chosen window and press Enter. False means the
+        window is gone and the text should be delivered normally."""
+        window_id, title = self._target_window
+        if self.desktop.window_title(window_id) is None:
+            log.warning("target window %s (%r) is gone — typing normally again",
+                        window_id, title)
+            self.clear_target_window()
+            self._notify("Target window closed",
+                         "Typing into the active window again.")
+            return False
+        try:
+            self.desktop.type_into_window(window_id, text)
+        except DesktopError as e:
+            log.error("sending to %r failed (text is in the clipboard): %s", title, e)
+            self._notify("Sending failed", f"{e} — the text is in your clipboard")
+            return True  # handled; don't type it a second time
+        log.info("transcribed %d characters → sent to %r + Enter", len(text), title)
+        self._notify(f"Sent to {_shorten(title)}", preview)
+        return True
 
     def _notify(self, summary: str, body: str) -> None:
         if not self.config.notifications:
@@ -257,6 +289,40 @@ class Daemon:
 
     def get_max_record_seconds(self) -> int:
         return self.config.max_record_seconds
+
+    def get_target_title(self) -> str | None:
+        target = self._target_window
+        return target[1] if target else None
+
+    def choose_target_window(self) -> str | None:
+        """Let the user pick a window by clicking it; every dictation is
+        then typed into that window and submitted with Enter, until the
+        target is cleared. Blocks until the click (~30 s timeout).
+        Returns the window title, or None if nothing was selected."""
+        self._notify("Choose a window",
+                     "Click the window that should receive your dictations.")
+        try:
+            window_id, title = self.desktop.select_window()
+        except DesktopError as e:
+            log.error("window selection failed: %s", e)
+            self._notify("Window selection failed", str(e))
+            return None
+        with self._lock:
+            self._target_window = (window_id, title)
+        log.info("target window set: %s (%r)", window_id, title)
+        if self._tray is not None:
+            self._tray.refresh_target()
+        self._notify(f"Dictating into: {_shorten(title)}",
+                     "Each dictation is typed there and submitted with "
+                     "Enter. Use the tray item again to stop.")
+        return title
+
+    def clear_target_window(self) -> None:
+        with self._lock:
+            self._target_window = None
+        log.info("target window cleared")
+        if self._tray is not None:
+            self._tray.refresh_target()
 
     def set_max_record_seconds(self, seconds: int) -> None:
         self.config.max_record_seconds = seconds
@@ -318,6 +384,7 @@ class Daemon:
                 notifications=self.config.notifications,
                 mode=self.sm.mode,
                 max_record_seconds=self.config.max_record_seconds,
+                target_window=self.get_target_title(),
                 autostart=autostart.is_enabled(),
                 hotkey=self.config.hotkey,
                 hotkey_status=self.hotkey_status,
@@ -350,6 +417,14 @@ class Daemon:
                     f"{config_mod.LIMIT_MIN} and {config_mod.LIMIT_MAX}")
             self.set_max_record_seconds(seconds)
             return ipc.ok(max_record_seconds=seconds)
+        if cmd == "set-target":
+            title = self.choose_target_window()
+            if title is None:
+                return ipc.error("no window was selected")
+            return ipc.ok(target_window=title)
+        if cmd == "clear-target":
+            self.clear_target_window()
+            return ipc.ok(target_window=None)
         if cmd == "quit":
             # Reply first, then shut down, so the client gets its answer.
             timer = threading.Timer(0.1, self.quit)

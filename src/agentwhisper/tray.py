@@ -12,6 +12,7 @@ the venv with --system-site-packages:
 
 from __future__ import annotations
 
+import threading
 from importlib import resources
 
 from agentwhisper import __version__
@@ -72,6 +73,7 @@ class Tray:
     def __init__(self, app):
         """`app` provides: is_enabled(), set_enabled(bool), get_mode(),
         set_mode(str), get_max_record_seconds(), set_max_record_seconds(int),
+        get_target_title(), choose_target_window(), clear_target_window(),
         hotkey_name(), quit()."""
         Gtk, GLib, AppIndicator = _import_gtk()
         self._gtk = Gtk
@@ -162,6 +164,11 @@ class Tray:
         limit_item.set_submenu(limit_menu)
         menu.append(limit_item)
 
+        self._target_item = Gtk.MenuItem(label="")
+        self._target_item.connect("activate", self._on_target_clicked)
+        menu.append(self._target_item)
+        self._refresh_target_label()
+
         menu.append(Gtk.SeparatorMenuItem())
 
         quit_item = Gtk.MenuItem(label="Quit AgentWhisper")
@@ -187,6 +194,15 @@ class Tray:
         if not self._updating_menu and item.get_active():
             self._app.set_max_record_seconds(seconds)
 
+    def _on_target_clicked(self, item):
+        if self._app.get_target_title() is not None:
+            self._app.clear_target_window()
+            return
+        # Window selection blocks until the user clicks a window — run it
+        # off the GTK thread; the daemon refreshes our label when done.
+        threading.Thread(target=self._app.choose_target_window,
+                         name="target-select", daemon=True).start()
+
     def _on_autotype_toggled(self, item):
         if not self._updating_menu:
             self._app.set_auto_type(item.get_active())
@@ -204,6 +220,20 @@ class Tray:
     def set_state(self, state: str) -> None:
         """'idle' | 'recording' | 'transcribing' — safe from any thread."""
         self._glib.idle_add(self._set_state_on_gtk_thread, state)
+
+    def refresh_target(self) -> None:
+        """Re-render the target-window menu item — safe from any thread."""
+        self._glib.idle_add(self._refresh_target_label)
+
+    def _refresh_target_label(self) -> bool:
+        title = self._app.get_target_title()
+        if title is None:
+            self._target_item.set_label("Dictate into one window…")
+        else:
+            if len(title) > 32:
+                title = title[:31] + "…"
+            self._target_item.set_label(f"Stop dictating into: {title}")
+        return False
 
     def _set_state_on_gtk_thread(self, state: str) -> bool:
         if state == "recording":

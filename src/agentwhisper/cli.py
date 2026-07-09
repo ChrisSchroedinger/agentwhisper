@@ -51,6 +51,7 @@ def cmd_status() -> int:
     print(f"  notify:     {s['notifications']}")
     print(f"  mode:       {s['mode']}")
     print(f"  limit:      {s['max_record_seconds']}s")
+    print(f"  target:     {s['target_window'] or 'active window'}")
     print(f"  autostart:  {s['autostart']}")
     print(f"  hotkey:     {s['hotkey']} — {s['hotkey_status']}")
     print(f"  tray:       {s['tray']}")
@@ -86,6 +87,25 @@ def cmd_limit(seconds: int) -> int:
     return 0
 
 
+def cmd_target(action: str) -> int:
+    if action == "choose":
+        print("Click the window that should receive your dictations…")
+        # The daemon waits up to 30 s for the click; outlive that.
+        s = _request({"cmd": "set-target"}, timeout=35.0)
+        if not s.get("ok"):
+            print(f"error: {s.get('error')}", file=sys.stderr)
+            return 1
+        print(f"dictating into: {s['target_window']} "
+              "(typed there + submitted with Enter)")
+        return 0
+    s = _request({"cmd": "clear-target"})
+    if not s.get("ok"):
+        print(f"error: {s.get('error')}", file=sys.stderr)
+        return 1
+    print("back to typing into the active window")
+    return 0
+
+
 def cmd_autostart(state: str) -> int:
     s = _request({"cmd": "set-autostart", "enabled": state == "on"})
     if not s.get("ok"):
@@ -118,6 +138,10 @@ def main() -> int:
     limit_parser = sub.add_parser("limit", help="set the max recording length")
     limit_parser.add_argument("seconds", type=int,
                               help="hard cap on a single recording, in seconds (30-600)")
+    target_parser = sub.add_parser(
+        "target", help="send every dictation to one chosen window (+ Enter)")
+    target_parser.add_argument("action", choices=["choose", "clear"],
+                               help="choose = click a window, clear = back to normal")
     autostart_parser = sub.add_parser("autostart", help="start AgentWhisper at login")
     autostart_parser.add_argument("state", choices=["on", "off"])
     sub.add_parser("quit", help="stop the daemon")
@@ -128,6 +152,8 @@ def main() -> int:
             return cmd_mode(args.mode)
         if args.command == "limit":
             return cmd_limit(args.seconds)
+        if args.command == "target":
+            return cmd_target(args.action)
         if args.command == "autostart":
             return cmd_autostart(args.state)
         handlers = {"status": cmd_status, "toggle": cmd_toggle, "quit": cmd_quit}

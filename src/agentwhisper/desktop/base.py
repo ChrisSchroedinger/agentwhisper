@@ -27,6 +27,21 @@ class DesktopBackend(Protocol):
         """Type text into the currently focused window. Raises DesktopError."""
         ...
 
+    def select_window(self) -> tuple[str, str]:
+        """Let the user pick a window by clicking it; blocks until the
+        click. Returns (window_id, title). Raises DesktopError (also on
+        timeout)."""
+        ...
+
+    def window_title(self, window_id: str) -> str | None:
+        """The window's current title, or None if the window is gone."""
+        ...
+
+    def type_into_window(self, window_id: str, text: str) -> None:
+        """Bring the window to the front, type text into it, then press
+        Enter to submit it. Raises DesktopError."""
+        ...
+
     def notify(self, summary: str, body: str = "") -> None:
         """Show a desktop notification, replacing the previous one from
         this app (no notification stacking). Raises DesktopError."""

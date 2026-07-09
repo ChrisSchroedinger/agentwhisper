@@ -118,7 +118,18 @@ won't see the key, so it can't accidentally trigger something else.
 - **Recording Mode** — hold-to-talk vs. press-to-toggle
 - **Recording Limit** — how long one recording may run at most
   (30 seconds to 10 minutes), so a stuck key can't record forever
+- **Dictate into one window…** — click any window once, and every
+  dictation is then typed into *that* window and submitted with Enter,
+  no matter where you're working (see below)
 - **Quit AgentWhisper**
+
+**Talking to an AI agent:** choose *Dictate into one window…*, click
+your agent's terminal once, and from then on you can dictate from
+anywhere — each recording is typed into that window and sent with
+Enter, hands-free. The window is raised each time and the clipboard
+still gets a copy. Click the same menu item (*Stop dictating into: …*)
+to go back to normal, or just close the window — AgentWhisper notices
+and tells you. The choice isn't remembered across restarts.
 
 **From the terminal** (optional, same controls):
 
@@ -127,6 +138,7 @@ agentwhisper status    # is it running? what's it doing?
 agentwhisper toggle    # enable/disable dictation
 agentwhisper mode toggle   # or: hold
 agentwhisper limit 120     # max seconds per recording (30-600)
+agentwhisper target choose # send every dictation to one window (or: clear)
 agentwhisper autostart on  # start with your session (or: off)
 agentwhisper quit
 ```

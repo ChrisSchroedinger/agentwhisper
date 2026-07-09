@@ -78,6 +78,9 @@ where the name points, but v1 ships dictation only.
   edge) with green equalizer bars following the live mic level
 - Local faster-whisper engine; model configurable
 - Output: clipboard always; auto-type into the focused window (toggleable)
+- Target-window mode (session-only): all dictations typed into one
+  chosen window + submitted with Enter — the hands-free step toward
+  agent mode
 - Desktop notifications for state changes (toggleable)
 - Tray icon with menu (toggle, model, quit)
 - `agentwhisper` CLI for everything the tray does, plus `status` and `logs`
