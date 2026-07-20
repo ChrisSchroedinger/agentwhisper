@@ -721,8 +721,8 @@ footer { border-top: 1px solid var(--line); padding: clamp(48px, 8vh, 90px) 0 40
           <div class="art term" role="img" aria-label="Excerpt of the config.toml file">
             <div><span class="cm"># The push-to-talk key</span></div>
             <div>key = <span class="a">"f12"</span></div>
-            <div><span class="cm"># tiny.en (fastest) … medium.en (most accurate)</span></div>
-            <div>model = <span class="a">"base.en"</span></div>
+            <div><span class="cm"># tiny (fastest) … large-v3 (most accurate)</span></div>
+            <div>model = <span class="a">"base"</span></div>
             <div>auto_type = <span class="a">true</span></div>
           </div>
         </div>
@@ -731,7 +731,7 @@ footer { border-top: 1px solid var(--line); padding: clamp(48px, 8vh, 90px) 0 40
           <h3>A first run that holds your hand</h3>
           <p>The speech model downloads in the background with live progress in the tray. Dictations made meanwhile are queued, not lost.</p>
           <div class="art dl-track" role="img" aria-label="Model download progress at 62 percent">
-            <div class="row"><span>whisper base.en</span><span>62% · 87 MB / 140 MB</span></div>
+            <div class="row"><span>whisper base</span><span>62% · 87 MB / 140 MB</span></div>
             <div class="dl-bar"><i></i></div>
           </div>
         </div>
@@ -753,13 +753,13 @@ footer { border-top: 1px solid var(--line); padding: clamp(48px, 8vh, 90px) 0 40
         </div>
         <div class="tab-panel code-block" id="panel-deb" role="tabpanel" aria-labelledby="tab-deb">
           <button class="copy-btn" data-copy="sudo apt install python3-gi python3-gi-cairo gir1.2-ayatanaappindicator3-0.1 xclip xdotool libnotify-bin
-sudo apt install ./agentwhisper_0.4.1_all.deb">copy</button>
+sudo apt install ./agentwhisper_0.5.5_all.deb">copy</button>
 <pre><span class="cm"># system packages for tray, typing, clipboard (most preinstalled on XFCE)</span>
 <span class="g">sudo</span> apt install python3-gi python3-gi-cairo \
      gir1.2-ayatanaappindicator3-0.1 xclip xdotool libnotify-bin
 
 <span class="cm"># grab the .deb from the latest release, then:</span>
-<span class="g">sudo</span> apt install ./agentwhisper_0.4.1_all.deb</pre>
+<span class="g">sudo</span> apt install ./agentwhisper_0.5.5_all.deb</pre>
         </div>
         <div class="tab-panel code-block" id="panel-src" role="tabpanel" aria-labelledby="tab-src" hidden>
           <button class="copy-btn" data-copy="git clone https://github.com/ChrisSchroedinger/agentwhisper.git
